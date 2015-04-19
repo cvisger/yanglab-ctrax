@@ -413,23 +413,16 @@ class BackgroundCalculator (bg_settings.BackgroundSettings):
         nf, lf = self.est_bg_selectframes()[1:]
         ff = self.bg_firstframe
         print "YL: checkForVaryingBg (frames %d - %d)" %(ff, lf)
-        nfC, nfAll = 2*nf, lf - ff + 1
-        frms = num.sort(num.random.choice(nfAll, min(nfC, nfAll), replace=False))
+        nfAll = lf - ff + 1
+        nfC = min(2*nf, nfAll)
+        frms = num.sort(num.random.choice(nfAll, nfC, replace=False))
         means = num.array([num.mean(params.movie.get_frame(f+ff)[0]) for f in frms])
         centrs = vq.kmeans2(means, num.array([means.min(), means.max()]))[0]
           # note: using just min and max instead of k-means probably fine
         ms = self.mean_separator = num.mean(centrs)
-        on = means > ms
-        rse, rseOn = self.rse(means), self.rse(means[on])
-          # note: rse (and rseOn) no longer used
-        print " RSE of %d frame means: all %f, on %f" %(nfC, rse, rseOn)
-        # sample values for rse and rseOn:
-        #  regular:   all 0.001488, on 0.000750
-        #  UV on:     all 0.003489, on 0.001670
-        #  UV on off: all 0.145429, on 0.003000
-        #  UV on 5%:  all 0.039912, on 0.001966
         cd = abs(centrs[1]-centrs[0])
-        print " frame means centroid distance: %f, RE: %f" %(cd, cd/ms)
+        print " ran k-means on %d frame means:" %nfC
+        print "  centroid distance: %f, separator: %f, RE: %f" %(cd, ms, cd/ms)
         # sample values for centroid distance and RE:
         #  UV off:     0.264704, RE: 0.003986
         #  UV on off: 13.116655, RE: 0.174778
@@ -438,11 +431,10 @@ class BackgroundCalculator (bg_settings.BackgroundSettings):
         print " varying background: %s" %self.varying_bg
 
         if self.varying_bg:
-            fon = float(num.count_nonzero(on)) / means.size
+            fon = float(num.count_nonzero(means > ms)) / means.size
             nf1 = int(nf * 1/min(fon, 1-fon) * 1.2)
             frms = num.sort(num.random.choice(nfAll, min(nf1, nfAll), replace=False))
             means = num.array([num.mean(params.movie.get_frame(f+ff)[0]) for f in frms])
-            on = means > ms
             for on in [False, True]:
                 sfs = frms[means > ms if on else means <= ms]
                 self.bg_frames[on] = \
